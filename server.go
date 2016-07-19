@@ -4,6 +4,7 @@ package coap
 import (
 	"log"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -88,6 +89,17 @@ func Serve(listener *net.UDPConn, rh Handler) error {
 	buf := make([]byte, maxPktLen)
 	for {
 		nr, addr, err := listener.ReadFromUDP(buf)
+		//
+		//
+		//JP Mod
+		isDiff, addrs := getAddrJP(buf)
+		if isDiff {
+			addr = addrs
+		}
+
+		/////
+		//
+		//
 		if err != nil {
 			if neterr, ok := err.(net.Error); ok && (neterr.Temporary() || neterr.Timeout()) {
 				time.Sleep(5 * time.Millisecond)
@@ -100,3 +112,24 @@ func Serve(listener *net.UDPConn, rh Handler) error {
 		go handlePacket(listener, tmp, addr, rh)
 	}
 }
+
+//// JP Mod
+func getAddrJP(buf []byte) (bool, *net.UDPAddr) {
+	bufString := string(buf)
+
+	var startIndexHost = strings.Index(bufString, "{")
+	var finishIndexHost = strings.Index(bufString, "}")
+	var destAddr string
+
+	if startIndexHost >= 0 || finishIndexHost > 0 {
+		destAddr = bufString[startIndexHost+1 : finishIndexHost]
+		da, _ := net.ResolveUDPAddr("udp", destAddr)
+		return true, da
+	}
+
+	da, _ := net.ResolveUDPAddr("udp", destAddr)
+	return false, da
+
+}
+
+////
