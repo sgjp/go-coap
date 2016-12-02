@@ -13,7 +13,7 @@ const (
 	ResponseRandomFactor = 1.5
 	// MaxRetransmit is the maximum number of times a message will
 	// be retransmitted.
-	MaxRetransmit = 4
+	MaxRetransmit = 1
 )
 
 // Conn is a CoAP client connection.

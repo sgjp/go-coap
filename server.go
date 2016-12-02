@@ -4,7 +4,6 @@ package coap
 import (
 	"log"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -29,7 +28,6 @@ func FuncHandler(f func(l *net.UDPConn, a *net.UDPAddr, m *Message) *Message) Ha
 
 func handlePacket(l *net.UDPConn, data []byte, u *net.UDPAddr,
 	rh Handler) {
-
 	msg, err := parseMessage(data)
 	if err != nil {
 		log.Printf("Error parsing %v", err)
@@ -59,6 +57,7 @@ func Transmit(l *net.UDPConn, a *net.UDPAddr, m Message) error {
 
 // Receive a message.
 func Receive(l *net.UDPConn, buf []byte) (Message, error) {
+
 	l.SetReadDeadline(time.Now().Add(ResponseTimeout))
 
 	nr, _, err := l.ReadFromUDP(buf)
@@ -76,12 +75,29 @@ func ListenAndServe(n, addr string, rh Handler) error {
 	}
 
 	l, err := net.ListenUDP(n, uaddr)
+
 	if err != nil {
 		return err
 	}
 
 	return Serve(l, rh)
 }
+//MOD JS
+func ListenAndServeMulticast(n, addr string, rh Handler, ifaceName string) error {
+	uaddr, err := net.ResolveUDPAddr(n, addr)
+	if err != nil {
+		return err
+	}
+	ifc, err := net.InterfaceByName(ifaceName)
+	l, err := net.ListenMulticastUDP(n,ifc, uaddr)
+
+	if err != nil {
+		return err
+	}
+
+	return Serve(l, rh)
+}
+//END MOD JS
 
 // Serve processes incoming UDP packets on the given listener, and processes
 // these requests forever (or until the listener is closed).
@@ -89,17 +105,7 @@ func Serve(listener *net.UDPConn, rh Handler) error {
 	buf := make([]byte, maxPktLen)
 	for {
 		nr, addr, err := listener.ReadFromUDP(buf)
-		//
-		//
-		//JP Mod
-		isDiff, addrs := getAddrJP(buf)
-		if isDiff {
-			addr = addrs
-		}
 
-		/////
-		//
-		//
 		if err != nil {
 			if neterr, ok := err.(net.Error); ok && (neterr.Temporary() || neterr.Timeout()) {
 				time.Sleep(5 * time.Millisecond)
@@ -108,28 +114,9 @@ func Serve(listener *net.UDPConn, rh Handler) error {
 			return err
 		}
 		tmp := make([]byte, nr)
+
 		copy(tmp, buf)
+
 		go handlePacket(listener, tmp, addr, rh)
 	}
 }
-
-//// JP Mod
-func getAddrJP(buf []byte) (bool, *net.UDPAddr) {
-	bufString := string(buf)
-
-	var startIndexHost = strings.Index(bufString, "{")
-	var finishIndexHost = strings.Index(bufString, "}")
-	var destAddr string
-
-	if startIndexHost >= 0 || finishIndexHost > 0 {
-		destAddr = bufString[startIndexHost+1 : finishIndexHost]
-		da, _ := net.ResolveUDPAddr("udp", destAddr)
-		return true, da
-	}
-
-	da, _ := net.ResolveUDPAddr("udp", destAddr)
-	return false, da
-
-}
-
-////
