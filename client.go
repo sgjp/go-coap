@@ -39,6 +39,10 @@ func Dial(n, addr string) (*Conn, error) {
 
 // Send a message.  Get a response if there is one.
 func (c *Conn) Send(req Message) (*Message, error) {
+	//MOD JS
+	defer c.conn.Close()
+
+
 	err := Transmit(c.conn, nil, req)
 	if err != nil {
 		return nil, err
